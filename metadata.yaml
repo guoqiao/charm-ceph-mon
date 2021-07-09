@@ -42,6 +42,8 @@ provides:
     interface: http
   dashboard:
     interface: ceph-dashboard
+  grafana-dashboard:
+    interface: grafana-dashboard
 requires:
   bootstrap-source:
     interface: ceph-bootstrap

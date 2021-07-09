@@ -115,6 +115,11 @@ SCRIPTS_DIR = '/usr/local/bin'
 STATUS_FILE = '/var/lib/nagios/cat-ceph-status.txt'
 STATUS_CRONFILE = '/etc/cron.d/cat-ceph-health'
 
+HERE = os.path.dirname(os.path.abspath(__file__))
+CHARM_DIR = os.path.dirname(HERE)
+TEMPLATES_DIR = os.path.join(CHARM_DIR, "templates")
+DASHBOARDS_DIR = os.path.join(TEMPLATES_DIR, "dashboards")
+
 
 def is_prometheus_permitted():
     """Check prometheus module availability.
@@ -475,6 +480,47 @@ def prometheus_relation(relid=None, unit=None, prometheus_permitted=None,
 @hooks.hook('prometheus-relation-departed')
 def prometheus_left():
     mgr_disable_module('prometheus')
+
+
+@hooks.hook(
+    'grafana-dashboard-relation-joined',
+    'grafana-dashboard-relation-changed',
+)
+def grafana_dashboard_relation_joined(relation_id=None, remote_unit=None):
+
+    """Grafana-dashboard relation joined.
+
+    Send content of each dashboard json files via relation.
+    """
+    if not ceph.is_bootstrapped():
+        log("ceph not bootstraped, skip dashboards relation", "WARNING")
+        return
+
+    prometheus_permitted = is_prometheus_permitted()
+    if not prometheus_permitted:
+        log("prometheus module not available for this ceph version, "
+            "skip dashboards relation", "WARNING")
+        return
+
+    module_enabled = is_mgr_module_enabled('prometheus')
+    if not module_enabled:
+        log("prometheus module not enabled, "
+            "skip dashboards relation", "WARNING")
+        return
+
+    hookenv.log("Grafana-dashboard relation joined, send dashboards")
+    for filename in os.listdir(DASHBOARDS_DIR):
+        # filename: ceph-cluster.json
+        filepath = os.path.join(DASHBOARDS_DIR, filename)
+        with open(filepath) as f:
+            dashboard_str = f.read()
+
+        log("sending dashboard: {}".format(filename), "DEBUG")
+
+        relation_set(relation_id, relation_settings={
+            "name": os.path.splitext(filename)[0],
+            "dashboard": dashboard_str,
+        })
 
 
 @hooks.hook('mon-relation-departed',
