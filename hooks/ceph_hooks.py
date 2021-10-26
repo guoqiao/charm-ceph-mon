@@ -116,6 +116,15 @@ STATUS_FILE = '/var/lib/nagios/cat-ceph-status.txt'
 STATUS_CRONFILE = '/etc/cron.d/cat-ceph-health'
 
 
+def is_prometheus_permitted():
+    """Check prometheus module availability.
+
+    prometheus module introduced in this release:
+    https://docs.ceph.com/en/latest/releases/luminous/#v12-2-0-luminous
+    """
+    return cmp_pkgrevno('ceph', '12.2.0') >= 0
+
+
 def check_for_upgrade():
     if not ceph.is_bootstrapped():
         log("Ceph is not bootstrapped, skipping upgrade checks.")
@@ -443,7 +452,7 @@ def prometheus_relation(relid=None, unit=None, prometheus_permitted=None,
     if not ceph.is_bootstrapped():
         return
     if prometheus_permitted is None:
-        prometheus_permitted = cmp_pkgrevno('ceph', '12.2.0') >= 0
+        prometheus_permitted = is_prometheus_permitted()
     if module_enabled is None:
         module_enabled = (is_mgr_module_enabled('prometheus') or
                           mgr_enable_module('prometheus'))
@@ -568,7 +577,7 @@ def notify_relations():
 
 def notify_prometheus():
     if relation_ids('prometheus') and ceph.is_bootstrapped():
-        prometheus_permitted = cmp_pkgrevno('ceph', '12.2.0') >= 0
+        prometheus_permitted = is_prometheus_permitted()
         module_enabled = (is_mgr_module_enabled('prometheus') or
                           mgr_enable_module('prometheus'))
     for relid in relation_ids('prometheus'):
